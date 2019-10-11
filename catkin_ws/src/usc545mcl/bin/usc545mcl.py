@@ -124,12 +124,6 @@ class Pose(object):
         msg.orientation.w = np.cos(self.rotation / 2)
         return msg
 
-    def __mul__(self, v):
-        return RotateBy(v, self.angle) + self.translation
-
-    def Inverse(self):
-        return Pose(-self.angle, np.dot(self.rotation, -self.transtranslation))
-
 
 class Grid(object):
     '''
