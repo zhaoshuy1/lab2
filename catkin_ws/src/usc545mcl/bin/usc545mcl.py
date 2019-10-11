@@ -30,6 +30,10 @@ NUM_PARTICLES = 2000
 
 @numba.jit(nopython=True)
 def _CastRay(p0, p1, grid_data):
+    '''
+    Cast a ray from p0 in the direction toward p1 and return the first cell the
+    sensor will detect.
+    '''
     delta = np.abs(np.array([p1[0] - p0[0], p1[1] - p0[1]]))
     p = p0.copy()
     n = 1 + np.sum(delta)
@@ -61,6 +65,10 @@ def _CastRay(p0, p1, grid_data):
 def _ComputeSimulatedRanges(scan_angles, scan_range_max, world_t_map,
                             map_t_particle, map_R_particle, grid_data,
                             grid_resolution):
+    '''
+    Cast rays in all directions and calculate distances to obstacles in all
+    directions from a given particle.
+    '''
     src_cell = ((map_t_particle - world_t_map) / grid_resolution).astype(
         np.int32)
 
@@ -90,7 +98,11 @@ def RotateBy(x, angle):
 
 
 class Pose(object):
-    '''2D pose representation.'''
+    '''
+    2D pose representation of robot w.r.t. world frame.
+    Given by the translation from origin to the robot, and then rotation to math
+    robot orientation.
+    '''
     def __init__(self, rotation=0, translation=[0, 0]):
         self.rotation = rotation
         self.translation = np.array(translation, dtype=dtype)
@@ -120,7 +132,10 @@ class Pose(object):
 
 
 class Grid(object):
-    '''Occupancy grid representation, with coordinate helpers.'''
+    '''
+    Occupancy grid representation, with coordinate helpers.
+    World is global coordinate frame and grid is index-based array coordinates.
+    '''
     def __init__(self, grid_msg):
         self.cols = grid_msg.info.width
         self.rows = grid_msg.info.height
@@ -155,7 +170,10 @@ class Grid(object):
 
 
 class Scan(object):
-    '''Scan representation / cache.'''
+    '''
+    Scan representation / cache.
+    Scan consists of angles and distances (ranges).
+    '''
     def __init__(self, scan_msg):
         angle_min = scan_msg.angle_min
         angle_max = scan_msg.angle_max
@@ -228,6 +246,9 @@ class Particle(object):
                                        self.grid.resolution)
 
     def UpdateScan(self, scan):
+        '''
+        Calculate weights of particles according to scan / map matching.
+        '''
         sim_ranges = self._ComputeSimulatedRanges(scan)
 
         ##########
@@ -248,9 +269,9 @@ class ParticleFilter(object):
         self.grid = grid
         self.last_timestamp = None
         self.particles = [Particle(grid) for _ in range(num_particles)]
-        self.publisher = rospy.Publisher("pose_hypotheses".format(id(self)),
-                                         geometry_msgs.msg.PoseArray,
-                                         queue_size=10)
+        self.pose_publisher = rospy.Publisher("pose_hypotheses",
+                                              geometry_msgs.msg.PoseArray,
+                                              queue_size=10)
         self.scan_publisher = rospy.Publisher("lidar",
                                               sensor_msgs.msg.LaserScan,
                                               queue_size=10)
@@ -313,7 +334,7 @@ class ParticleFilter(object):
         ##########
 
         # Publish cloud for visualization.
-        self.publisher.publish(self.GetPoseArray())
+        self.pose_publisher.publish(self.GetPoseArray())
         avg_pose = self.GetMeanPose()
         avg_trans = (avg_pose.translation[0], avg_pose.translation[1], 0)
         avg_quat = tf.transformations.quaternion_from_euler(
