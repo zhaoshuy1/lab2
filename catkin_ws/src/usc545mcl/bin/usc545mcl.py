@@ -19,13 +19,13 @@ import skimage.draw
 import sys
 import copy
 
-dtype = np.float32
+dtype = np.float64
 
 LINEAR_MODEL_VAR_X = 0.5
 LINEAR_MODEL_VAR_Y = 0.5
 ANGULAR_MODEL_VAR = 0.3
-SENSOR_MODEL_VAR = 5.0
-NUM_PARTICLES = 1000
+SENSOR_MODEL_VAR = 15.0
+NUM_PARTICLES = 2000
 
 
 @numba.jit(nopython=True)
@@ -206,13 +206,16 @@ class Particle(object):
         #  2. Add noise to the velocity, with component variance
         #     LINEAR_MODEL_VAR_X and LINEAR_MODEL_VAR_Y
         #  3. Transform the linear velocity into map frame (use the provided
-        #     RotateBy() function)
-        #  4. Integrate the linear velocity to the particle pose
+        #     RotateBy() function). The current pose of the particle, in map
+        #     frame, is stored in self.map_T_particle
+        #  4. Integrate the linear velocity to the particle pose, stored in
+        #     self.map_T_particle.translation
         #  5. Extract the particle's rotational velocity
         #     (odom_msg.twist.twist.angular.z)
         #  6. Add noise to the rotational velocity, with variance
         #     ANGULAR_MODEL_VAR
-        #  7. Integrate the rotational velocity into the particle pose
+        #  7. Integrate the rotational velocity into the particle pose, stored
+        #     in self.map_T_particle.rotation
         #
         ##########
 
@@ -234,11 +237,8 @@ class Particle(object):
         #  1. Compute the likelihood of each beam, compared to sim_ranges. The
         #     true measurement vector is in scan.ranges. Use the Gaussian PDF
         #     formulation.
-        #  2. Assign the weight of this particle as the sum of these
-        #     probabilities.
-        #
-        #  Note: normalizing the PDF isn't necessary, since this is normalized
-        #  later and every calculation has the same variance
+        #  2. Assign the weight of this particle as the product of these
+        #     probabilities. Store this value in self.weight.
         #
         ##########
 
